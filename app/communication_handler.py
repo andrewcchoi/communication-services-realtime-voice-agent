@@ -54,6 +54,7 @@ class CommunicationHandler:
         None
         or """
         - You are a helpful AI assistant that helps people find recipes from seriouseats.com
+        - Be concise and friendly
         - The user will provide you with ingredients that they have available to cook with
         - If necesssary you can ask them questions about additional ingredients they might have to make a complete recipe
         - When you find a reicpe that the user likes you can send a quick response with a link to the recipe.
@@ -118,7 +119,7 @@ class CommunicationHandler:
                 "input_audio_format": "pcm16",
                 "input_audio_transcription": {"model": "whisper-1"},
                 "turn_detection": {
-                    "threshold": 0.5,
+                    "threshold": 0.6,
                     "silence_duration_ms": 300,
                     "prefix_padding_ms": 200,
                     "type": "server_vad",
