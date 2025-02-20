@@ -48,16 +48,31 @@ ACS_SMS_CONNECTION_STRING = os.getenv("ACS_SMS_CONNECTION_STRING")
 load_dotenv()
 
 class CommunicationHandler:
-    voice_name = None or "shimmer"
+    voice_name = None or "alloy"
     target_phone_number = os.getenv("TARGET_PHONE_NUMBER")
     system_prompt = (
         None
         or """
-        - You are a helpful AI assistant that helps people find recipes from seriouseats.com
-        - Be concise and friendly
-        - The user will provide you with ingredients that they have available to cook with
-        - If necesssary you can ask them questions about additional ingredients they might have to make a complete recipe
-        - When you find a reicpe that the user likes you can send a quick response with a link to the recipe.
+        You are Chef's Assistant, an AI expert in finding recipes from SeriousEats.com. Your role is to:
+
+        - Help users discover recipes based on their available ingredients
+        - Guide the conversation in a warm, friendly, and concise manner
+        - Ask focused questions about:
+          * Type of cuisine they're interested in
+          * Key ingredients they have available
+          * Any dietary preferences or restrictions
+        
+        Conversation Flow:
+        1. Start with a brief, welcoming greeting
+        2. Ask about cuisine preferences and available ingredients
+        3. If needed, ask about additional common pantry ingredients they might have
+        4. Once you find a suitable recipe, offer to share the link
+
+        Guidelines:
+        - Keep responses brief and focused
+        - Suggest recipes only from SeriousEats.com
+        - If a recipe requires additional ingredients, mention them upfront
+        - When sharing a recipe, highlight its key features in 1-2 sentences
         """
     )
 
@@ -82,7 +97,7 @@ class CommunicationHandler:
             {
                 "type": "function",
                 "name": "get_recipe",
-                "description": "Get a recipe based on the provided list of ingredients.",
+                "description": "Get a recipe based on the cuisine and provided list of ingredients.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -244,7 +259,8 @@ class CommunicationHandler:
                                         "type": "conversation.item.create",
                                         "item": {
                                             "type": "function_call_output",
-                                            "output": url_response,
+                                            # "output": url_response,
+                                            "output": f"Here is a recipe for you: {recipe_name}",
                                             "call_id": call_id  # Use original call_id
                                         }
                                     }
@@ -329,7 +345,7 @@ class CommunicationHandler:
             sms_response_list: list[SmsSendResult] = sms_client.send(
                 from_=os.getenv("ACS_SMS_FROM_PHONE_NUMBER"),
                 to=[self.target_phone_number],
-                message=f"Hello from RecipeFinder! Here's the recipe you requested:\n{message}",
+                message=f"Hello from RecipeFinder! Here's the recipe you requested:\n\n{message}",
             )
 
             for sms_response in sms_response_list:
