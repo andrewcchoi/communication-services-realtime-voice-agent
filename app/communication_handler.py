@@ -115,7 +115,6 @@ class CommunicationHandler:
             "session": {
                 "voice": "alloy",
                 "instructions": self.system_prompt,
-                "speed": "1.0",
                 "input_audio_format": "pcm16",
                 "input_audio_transcription": {"model": "whisper-1"},
                 "turn_detection": {
@@ -329,7 +328,7 @@ class CommunicationHandler:
             sms_response_list: list[SmsSendResult] = sms_client.send(
                 from_=os.getenv("ACS_SMS_FROM_PHONE_NUMBER"),
                 to=[self.target_phone_number],
-                message=message,
+                message=f"Hello from RecipeFinder! Here's the recipe you requested:\n{message}",
             )
 
             for sms_response in sms_response_list:
