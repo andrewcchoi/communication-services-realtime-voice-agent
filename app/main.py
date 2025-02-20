@@ -1,10 +1,12 @@
+from multiprocessing import connection
 import os
-import logging
+# import logging
 import uuid
 from urllib.parse import urlencode, urlparse, urlunparse
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
-from fastapi.logger import logger
+# from fastapi.logger import logger
+from loguru import logger
 from fastapi import (
     Body,
     FastAPI,
@@ -36,15 +38,14 @@ from azure.communication.callautomation import (
 )
 
 
-
-
 from app.communication_handler import CommunicationHandler
+
+
 
 load_dotenv()
 
 app = FastAPI()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 
 ACS_CONNECTION_STRING = os.getenv("ACS_CONNECTION_STRING")
 acs_ca_client = CallAutomationClient.from_connection_string(ACS_CONNECTION_STRING)
@@ -78,19 +79,14 @@ async def incoming_call_handler(request: Request):
                 content=validation_response, status_code=status.HTTP_200_OK
             )
         elif event.event_type == "Microsoft.Communication.IncomingCall":
-            # logger.info("Incoming call received: data=%s", event.data)
             if event.data["from"]["kind"] == "phoneNumber":
                 caller_id = event.data["from"]["phoneNumber"]["value"]
             else:
                 caller_id = event.data["from"]["rawId"]
 
-            # logger.info(f"incoming call handler caller id:{caller_id}")
-
             incoming_call_context = event.data["incomingCallContext"]
             guid = uuid.uuid4()
-            #
-            # NOTE: You can pass custom properties to track calls/user data into the query params
-            #
+
             query_parameters = urlencode({"callerId": caller_id, "boo": "poop"})
             callback_uri = f"{CALLBACK_EVENTS_URI}/{guid}?{query_parameters}"
 
@@ -100,41 +96,28 @@ async def incoming_call_handler(request: Request):
             logger.info(f"callback url: {callback_uri}")
             logger.info(f"websocket url: {websocket_url}")
 
-            media_streaming_options = MediaStreamingOptions(
-                transport_url=websocket_url,
-                transport_type=MediaStreamingTransportType.WEBSOCKET,
-                content_type=MediaStreamingContentType.AUDIO,
-                audio_channel_type=MediaStreamingAudioChannelType.MIXED,
-                start_media_streaming=True,
-                enable_bidirectional=True,
-                audio_format=AudioFormat.PCM24_K_MONO,
-            )
+            try:
+                # Answer the incoming call
 
-            answer_call_result = acs_ca_client.get_call_connection(
-                incoming_call_context=incoming_call_context,
-                operation_context="incomingCall",
-                callback_url=callback_uri,
-                media_streaming=media_streaming_options,
-            )
+                media_streaming_options = MediaStreamingOptions(
+                    transport_url=websocket_url,
+                    transport_type=MediaStreamingTransportType.WEBSOCKET,
+                    content_type=MediaStreamingContentType.AUDIO,
+                    audio_channel_type=MediaStreamingAudioChannelType.MIXED,
+                    start_media_streaming=True,
+                    enable_bidirectional=True,
+                    audio_format=AudioFormat.PCM24_K_MONO,
+                )
 
-            target_participant = PhoneNumberIdentifier("+14152839742")
-            # TODO: Change the source caller id to the actual caller id
-            source_caller = PhoneNumberIdentifier("")
-            call_invite = CallInvite(
-                target=target_participant, source_caller_id_number=source_caller
-            )
-            print(f"\n\n\n\nThis is the callback {callback_uri}\n\n\n", flush=True)
+                answer_call_result = acs_ca_client.answer_call(
+                    incoming_call_context=incoming_call_context,
+                    operation_context="incomingCall",
+                    callback_url=callback_uri,
+                    media_streaming=media_streaming_options,
+                )
 
-            call_connection_properties = acs_ca_client.answer_call(
-                incoming_call_context=incoming_call_context,
-                operation_context="incomingCall",
-                callback_url=callback_uri,
-                media_streaming=media_streaming_options,
-            )
-
-            logger.info(
-                f"Created call with connection id: {call_connection_properties.call_connection_id}"
-            )
+            except Exception as e:
+                raise e
 
             logger.info(
                 f"Answered call for connection id: {answer_call_result.call_connection_id}"
@@ -196,27 +179,14 @@ async def handle_callback_with_context(contextId: str, request: Request):
             pass
 
 
-# WebSocket.
+# WebSocket
 @app.websocket("/ws")
 async def ws(websocket: WebSocket):
-
     await websocket.accept()
 
     service = CommunicationHandler(websocket)
     await service.start_conversation_async()
-
-    while True:
-        data = await websocket.receive_json()
-        service.send_json(
-            {
-                "type": "response.create",
-                "response": {
-                    "modalities": ["text", "audio"],
-                    "instructions": f"Respond to the user that you found ",
-                },
-            }
-        )
-
+    
     while True:
         try:
             # Receive data from the client
