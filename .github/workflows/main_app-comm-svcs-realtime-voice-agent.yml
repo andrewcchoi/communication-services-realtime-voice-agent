@@ -18,11 +18,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python version
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
